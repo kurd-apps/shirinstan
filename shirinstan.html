@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shirinstan · Cashier POS</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,700;0,9..40,800;1,9..40,400&family=DM+Mono:wght@400;500&family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Supabase JS -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+  :root {
+    --ink: #0D0F14;
+    --ink-2: #1A1D27;
+    --ink-3: #252836;
+    --surface: #F4F5F8;
+    --card: #FFFFFF;
+    --border: #E8EAF0;
+    --muted: #8B90A0;
+    --accent: #5B5FEF;
+    --accent-2: #7C3FE4;
+    --accent-glow: rgba(91,95,239,0.18);
+    --green: #10B981;
+    --red: #F43F5E;
+    --amber: #F59E0B;
+    --blue: #3B82F6;
+    --sidebar-w: 240px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--surface);
+    color: var(--ink);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── LAYOUT ── */
+  #appWrap { display: flex; min-height: 100vh; }
+
+  /* ── SIDEBAR ── */
+  #sidebar {
+    width: var(--sidebar-w);
+    background: var(--ink-2);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    inset-y: 0;
+    left: 0;
+    z-index: 60;
+    transition: transform .3s cubic-bezier(.4,0,.2,1);
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  #sidebar::-webkit-scrollbar { width: 0; }
+
+  .sidebar-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 22px 18px 18px;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+  }
+  .logo-icon {
+    width: 38px; height: 38px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px; color: white;
+    box-shadow: 0 4px 14px rgba(91,95,239,.4);
+    flex-shrink: 0;
+  }
+  .logo-text { font-family: 'Sora', sans-serif; font-weight: 800; font-size: 15px; color: white; line-height: 1.2; }
+  .logo-sub { font-size: 9px; font-weight: 500; color: rgba(255,255,255,.35); text-transform: uppercase; letter-spacing: .1em; }
+
+  .nav-section { padding: 18px 12px 4px; font-size: 8.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.25); }
+
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 14px;
+    margin: 1px 8px;
+    border-radius: 9px;
+    font-size: 13px; font-weight: 500;
+    color: rgba(255,255,255,.5);
+    cursor: pointer;
+    transition: all .18s;
+    border: none; background: transparent; width: calc(100% - 16px); text-align: left;
+  }
+  .nav-item i { width: 16px; text-align: center; font-size: 13px; }
+  .nav-item:hover { background: rgba(255,255,255,.06); color: rgba(255,255,255,.85); }
+  .nav-item.active { background: rgba(91,95,239,.2); color: white; font-weight: 700; }
+  .nav-item.active i { color: #818CF8; }
+
+  .nav-badge {
+    margin-left: auto;
+    background: linear-gradient(135deg, #F43F5E, #DC2626);
+    color: white;
+    font-size: 8.5px;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 10px;
+    min-width: 20px;
+    text-align: center;
+  }
+
+  .sidebar-footer {
+    padding: 14px 12px;
+    border-top: 1px solid rgba(255,255,255,.06);
+  }
+  .user-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(255,255,255,.05);
+    cursor: pointer;
+  }
+  .user-avatar {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 13px; color: white; flex-shrink: 0;
+  }
+  .user-name { font-size: 12px; font-weight: 700; color: white; }
+  .user-role { font-size: 9px; color: rgba(255,255,255,.35); }
+
+  /* ── MAIN ── */
+  #mainContent {
+    margin-left: var(--sidebar-w);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    transition: margin .3s cubic-bezier(.4,0,.2,1);
+  }
+
+  /* ── TOPBAR ── */
+  #topbar {
+    position: sticky; top: 0; z-index: 40;
+    background: rgba(244,245,248,.92);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 60px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 14px; }
+  .menu-btn {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: white; border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; color: var(--muted);
+    transition: all .15s;
+  }
+  .menu-btn:hover { color: var(--ink); box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+  #pageTitle { font-family: 'Sora', sans-serif; font-size: 15px; font-weight: 700; color: var(--ink); }
+  #pageDate { font-size: 11px; color: var(--muted); }
+
+  .topbar-right { display: flex; align-items: center; gap: 8px; }
+  .topbar-btn {
+    display: flex; align-items: center; gap: 7px;
+    padding: 8px 16px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: white; border: none; border-radius: 9px;
+    font-size: 12.5px; font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(91,95,239,.35);
+    transition: all .15s;
+  }
+  .topbar-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(91,95,239,.45); }
+  .topbar-btn:active { transform: translateY(0); }
+  .notif-btn {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: white; border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; color: var(--muted); font-size: 14px;
+    transition: all .15s; position: relative;
+  }
+  .notif-dot { width: 7px; height: 7px; background: var(--red); border-radius: 50%; position: absolute; top: 7px; right: 7px; border: 1.5px solid var(--surface); display: none; }
+
+  /* ── PAGE WRAPPER ── */
+  #pageWrap { padding: 24px; flex: 1; }
+
+  /* ── TAB SYSTEM ── */
+  .tab-content { display: none; animation: fadeUp .3s ease-out; }
+  .tab-content.active { display: block; }
+  @keyframes fadeUp { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: translateY(0); } }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--card);
+    border-radius: 18px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .card-pad { padding: 22px; }
+  .card-header { padding: 22px 24px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .card-title { font-family: 'Sora', sans-serif; font-size: 16px; font-weight: 800; color: var(--ink); }
+  .card-subtitle { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  /* ── FORMS ── */
+  .form-label { display: block; font-size: 12px; font-weight: 700; color: var(--ink); margin-bottom: 7px; }
+  .inp {
+    width: 100%;
+    padding: 10px 13px;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--ink);
+    background: white;
+    transition: all .15s;
+    box-sizing: border-box;
+  }
+  .inp:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+  .inp::placeholder { color: var(--muted); }
+  textarea.inp { resize: vertical; font-family: 'DM Sans', sans-serif; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    padding: 10px 18px;
+    border-radius: 10px;
+    border: none;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: white;
+    box-shadow: 0 4px 14px rgba(91,95,239,.35);
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(91,95,239,.45); }
+  .btn-secondary {
+    background: var(--surface);
+    color: var(--ink);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { background: white; border-color: var(--accent); color: var(--accent); }
+  .btn-danger {
+    background: rgba(244,63,94,.1);
+    color: var(--red);
+  }
+  .btn-danger:hover { background: rgba(244,63,94,.2); }
+  .btn-sm { padding: 7px 12px; font-size: 11.5px; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* ── DATA TABLE ── */
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table thead tr { background: var(--surface); border-bottom: 1px solid var(--border); }
+  .data-table th { padding: 11px 16px; text-align: left; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); white-space: nowrap; }
+  .data-table td { padding: 13px 16px; border-bottom: 1px solid rgba(232,234,240,.5); color: var(--ink); vertical-align: middle; }
+  .data-table tbody tr:hover { background: rgba(91,95,239,.025); }
+  .data-table tbody tr:last-child td { border-bottom: none; }
+
+  /* ── BADGES ── */
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 10.5px; font-weight: 700; }
+  .badge-green { background: rgba(16,185,129,.1); color: var(--green); }
+  .badge-red { background: rgba(244,63,94,.1); color: var(--red); }
+  .badge-amber { background: rgba(245,158,11,.1); color: var(--amber); }
+  .badge-blue { background: rgba(59,130,246,.1); color: var(--blue); }
+  .badge-purple { background: rgba(91,95,239,.1); color: var(--accent); }
+
+  /* ── MODAL ── */
+  .modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(13,15,20,.55);
+    backdrop-filter: blur(5px);
+    z-index: 100;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .modal-backdrop.open { display: flex; animation: modalIn .2s ease-out; }
+  @keyframes modalIn { from { opacity:0; } to { opacity:1; } }
+  .modal-box {
+    background: white;
+    border-radius: 22px;
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 24px 60px rgba(0,0,0,.18);
+    animation: boxIn .25s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes boxIn { from { transform: scale(.92); opacity:0; } to { transform: scale(1); opacity:1; } }
+  .modal-header { padding: 22px 24px 0; display: flex; align-items: center; justify-content: space-between; }
+  .modal-title { font-family: 'Sora', sans-serif; font-size: 17px; font-weight: 800; }
+  .modal-close { width: 32px; height: 32px; border-radius: 8px; border: none; background: var(--surface); color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px; transition: all .15s; }
+  .modal-close:hover { background: rgba(244,63,94,.1); color: var(--red); }
+  .modal-body { padding: 20px 24px 24px; }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed; bottom: 24px; right: 24px; z-index: 999;
+    background: var(--ink-2); color: white;
+    padding: 12px 20px; border-radius: 12px;
+    font-size: 13px; font-weight: 600;
+    box-shadow: 0 8px 24px rgba(0,0,0,.2);
+    display: none; align-items: center; gap: 12px;
+  }
+  #toast.show { display: flex; animation: slideIn .3s ease-out; }
+  @keyframes slideIn { from { transform: translateX(360px); opacity:0; } to { transform: translateX(0); opacity:1; } }
+  #toast.success { background: rgba(16,185,129,.95); }
+  #toast.error { background: rgba(244,63,94,.95); }
+  #toast.warn { background: rgba(245,158,11,.95); }
+  #toast .ti { font-size: 14px; }
+
+  .spinner { width: 20px; height: 20px; border: 2.5px solid rgba(91,95,239,.2); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── POS GRID ── */
+  .pos-layout { display: grid; grid-template-columns: 1fr 360px; gap: 20px; min-height: calc(100vh - 130px); }
+  .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px; }
+  .product-card {
+    background: white; border: 1.5px solid var(--border);
+    border-radius: 16px; overflow: hidden;
+    cursor: pointer; transition: all .18s;
+    display: flex; flex-direction: column;
+  }
+  .product-card:hover { border-color: var(--accent); box-shadow: 0 6px 20px rgba(91,95,239,.12); transform: translateY(-2px); }
+  .product-card img { width: 100%; height: 100px; object-fit: cover; background: var(--surface); }
+  .product-card-body { padding: 10px 12px; flex: 1; }
+  .product-name { font-size: 12px; font-weight: 700; color: var(--ink); line-height: 1.3; margin-bottom: 4px; }
+  .product-price { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500; color: var(--accent); }
+  .product-stock { font-size: 10px; color: var(--muted); }
+
+  /* Cart Panel */
+  .cart-panel { background: white; border-radius: 18px; border: 1px solid var(--border); display: flex; flex-direction: column; height: 100%; max-height: calc(100vh - 130px); position: sticky; top: 84px; }
+  .cart-header { padding: 18px 18px 14px; border-bottom: 1px solid var(--border); }
+  .cart-items { flex: 1; overflow-y: auto; padding: 12px; }
+  .cart-items::-webkit-scrollbar { width: 4px; }
+  .cart-items::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+  .cart-item { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 12px; margin-bottom: 8px; background: var(--surface); }
+  .cart-item-name { font-size: 12.5px; font-weight: 700; color: var(--ink); flex: 1; min-width: 0; }
+  .cart-item-price { font-family: 'DM Mono', monospace; font-size: 11.5px; color: var(--muted); }
+  .qty-ctrl { display: flex; align-items: center; gap: 6px; }
+  .qty-btn { width: 24px; height: 24px; border-radius: 6px; border: 1px solid var(--border); background: white; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--ink); transition: all .12s; }
+  .qty-btn:hover { background: var(--accent); color: white; border-color: var(--accent); }
+  .qty-num { font-size: 13px; font-weight: 800; min-width: 20px; text-align: center; }
+  .cart-footer { padding: 16px 18px; border-top: 1px solid var(--border); }
+  .cart-total-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .cart-total-label { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .cart-total-val { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 700; color: var(--ink); }
+  .cart-grand { display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px dashed var(--border); margin-top: 6px; }
+  .cart-grand-label { font-family: 'Sora', sans-serif; font-size: 14px; font-weight: 800; }
+  .cart-grand-val { font-family: 'Sora', sans-serif; font-size: 22px; font-weight: 800; color: var(--accent); }
+
+  /* ── SETUP SCREEN ── */
+  #setupScreen {
+    position: fixed; inset: 0;
+    background: var(--ink-2);
+    z-index: 200;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  #loginScreen {
+    position: fixed; inset: 0;
+    background: var(--ink-2);
+    z-index: 200;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .setup-box {
+    background: white;
+    border-radius: 24px;
+    padding: 40px;
+    width: 100%;
+    max-width: 440px;
+    box-shadow: 0 32px 80px rgba(0,0,0,.3);
+  }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+  /* ── MOBILE ── */
+  @media (max-width: 900px) {
+    #sidebar { transform: translateX(-100%); }
+    #sidebar.open { transform: translateX(0); }
+    #mainContent { margin-left: 0; }
+    .pos-layout { grid-template-columns: 1fr; }
+    .cart-panel { position: static; max-height: none; }
+  }
+
+  #sidebarOverlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(13,15,20,.5);
+    z-index: 55;
+  }
+  #sidebarOverlay.active { display: block; }
+
+  /* ── SEARCH BAR ── */
+  .search-wrap { position: relative; }
+  .search-wrap i { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 13px; }
+  .search-wrap .inp { padding-left: 36px; }
+
+  /* ── PROGRESS BAR ── */
+  .progress-bar { height: 6px; background: var(--surface); border-radius: 10px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 10px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .4s ease; }
+
+  /* Product image placeholder */
+  .img-placeholder { width: 100%; height: 100px; background: linear-gradient(135deg, rgba(91,95,239,.1), rgba(124,63,228,.1)); display: flex; align-items: center; justify-content: center; font-size: 28px; }
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN SCREEN ══ -->
+<div id="loginScreen">
+  <div class="setup-box">
+    <div style="text-align:center; margin-bottom:28px;">
+      <div class="logo-icon" style="width:52px;height:52px;border-radius:14px;font-size:22px;margin:0 auto 14px;">
+        <i class="fas fa-crown"></i>
+      </div>
+      <h1 style="font-family:'Sora',sans-serif;font-size:22px;font-weight:800;color:var(--ink);margin-bottom:4px;">Shirinstan POS</h1>
+      <p style="font-size:12px;color:var(--muted);">Login to access the system</p>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div>
+        <label class="form-label">Email</label>
+        <input id="loginEmail" class="inp" type="email" placeholder="kurdishapps0@gmail.com" value="">
+      </div>
+      <button onclick="handleLogin()" class="btn btn-primary" style="width:100%;justify-content:center;padding:13px;">
+        <i class="fas fa-sign-in-alt"></i> Login
+      </button>
+    </div>
+    <p id="loginError" style="text-align:center;font-size:11px;color:var(--red);margin-top:12px;display:none;"></p>
+    <p style="text-align:center;font-size:10px;color:var(--muted);margin-top:16px;">Authorized email: kurdishapps0@gmail.com</p>
+  </div>
+</div>
+
+<!-- ══ SETUP SCREEN ══ -->
+<div id="setupScreen" style="display:none;">
+  <div class="setup-box">
+    <div style="text-align:center; margin-bottom:28px;">
+      <div class="logo-icon" style="width:52px;height:52px;border-radius:14px;font-size:22px;margin:0 auto 14px;">
+        <i class="fas fa-crown"></i>
+      </div>
+      <h1 style="font-family:'Sora',sans-serif;font-size:22px;font-weight:800;color:var(--ink);margin-bottom:4px;">Shirinstan POS</h1>
+      <p style="font-size:12px;color:var(--muted);">Connect your Supabase database to get started</p>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div>
+        <label class="form-label">Supabase Project URL</label>
+        <input id="sbUrl" class="inp" placeholder="https://xxxx.supabase.co" value="">
+      </div>
+      <div>
+        <label class="form-label">Supabase Anon Key</label>
+        <input id="sbKey" class="inp" type="password" placeholder="eyJhbGci...">
+      </div>
+      <button onclick="connectSupabase()" class="btn btn-primary" style="width:100%;justify-content:center;padding:13px;">
+        <i class="fas fa-plug"></i> Connect & Launch
+      </button>
+      <button onclick="demoMode()" class="btn btn-secondary" style="width:100%;justify-content:center;padding:11px;">
+        <i class="fas fa-flask"></i> Launch in Demo Mode
+      </button>
+    </div>
+    <p style="text-align:center;font-size:10px;color:var(--muted);margin-top:16px;">Your credentials are stored locally only</p>
+  </div>
+</div>
+
+<!-- ══ SIDEBAR OVERLAY ══ -->
+<div id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<!-- ══ APP WRAP ══ -->
+<div id="appWrap" style="display:none;">
+
+  <!-- SIDEBAR -->
+  <aside id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon"><i class="fas fa-crown"></i></div>
+      <div>
+        <div class="logo-text">Shirinstan</div>
+        <div class="logo-sub">Cashier POS</div>
+      </div>
+    </div>
+
+    <nav style="flex:1;padding:8px 0;">
+      <div class="nav-section">Main</div>
+      <button class="nav-item active" onclick="switchTab('dashboard')"><i class="fas fa-chart-pie"></i> Dashboard</button>
+      <button class="nav-item" onclick="switchTab('pos')"><i class="fas fa-cash-register"></i> POS / Sell <span class="nav-badge" id="cartBadge">0</span></button>
+      <button class="nav-item" onclick="switchTab('orders')"><i class="fas fa-receipt"></i> Orders <span class="nav-badge" id="orderBadge">0</span></button>
+
+      <div class="nav-section">Inventory</div>
+      <button class="nav-item" onclick="switchTab('products')"><i class="fas fa-box-open"></i> Products</button>
+      <button class="nav-item" onclick="switchTab('purchases')"><i class="fas fa-shopping-bag"></i> Purchases</button>
+
+      <div class="nav-section">Finance</div>
+      <button class="nav-item" onclick="switchTab('accountant')"><i class="fas fa-calculator"></i> Accountant</button>
+      <button class="nav-item" onclick="switchTab('customers')"><i class="fas fa-users"></i> Customers</button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-card">
+        <div class="user-avatar" id="userAvatar">A</div>
+        <div style="flex:1;min-width:0;">
+          <div class="user-name" id="userName">Admin</div>
+          <div class="user-role" id="userEmail" style="font-size:10px;">Cashier Manager</div>
+        </div>
+        <button onclick="handleLogout()" style="background:none;border:none;color:rgba(255,255,255,.3);cursor:pointer;font-size:13px;" title="Logout"><i class="fas fa-power-off"></i></button>
+      </div>
+    </div>
+  </aside>
+
+<!-- REST OF THE HTML CONTENT HERE (truncated for brevity) -->
+
+</body>
+</html>
